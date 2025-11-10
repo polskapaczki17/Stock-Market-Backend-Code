@@ -5,19 +5,19 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5000;
 
 app.get("/", (req, res) => {
   res.send("Market Data API is running!");
 });
 
-// =====================
-// STOCKS (via Alpaca)
-// =====================
+// ===================================================================
+// 📈 STOCKS — via Alpaca Market Data
+// ===================================================================
 app.get("/api/stocks", async (req, res) => {
-  const symbols = req.query.symbols || "AAPL,MSFT,TSLA";
+  const symbols = req.query.symbols || "AAPL,MSFT,TSLA,GOOGL";
   const url = `https://data.alpaca.markets/v2/stocks/snapshots?symbols=${symbols}`;
-  
+
   try {
     const response = await fetch(url, {
       headers: {
@@ -30,25 +30,26 @@ app.get("/api/stocks", async (req, res) => {
     const simplified = {};
     for (const [symbol, info] of Object.entries(data)) {
       simplified[symbol] = {
-        price: info.latestTrade?.p || null,
-        change: info.dailyBar?.c || null,
-        high: info.dailyBar?.h || null,
-        low: info.dailyBar?.l || null,
-        volume: info.minuteBar?.v || null,
-        time: info.latestTrade?.t || null,
+        price: info.latestTrade?.p ?? null,
+        high: info.dailyBar?.h ?? null,
+        low: info.dailyBar?.l ?? null,
+        close: info.dailyBar?.c ?? null,
+        volume: info.dailyBar?.v ?? null,
+        time: info.latestTrade?.t ?? null,
       };
     }
 
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.json(simplified);
   } catch (err) {
+    console.error("Stocks error:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// =====================
-// CRYPTO (via Alpaca)
-// =====================
+// ===================================================================
+// 💰 CRYPTO — via Alpaca Crypto Feed (global)
+// ===================================================================
 app.get("/api/crypto", async (req, res) => {
   const symbols = req.query.symbols || "BTC/USD,ETH/USD";
   const url = `https://data.alpaca.markets/v1beta3/crypto/latest/snapshots?symbols=${symbols}`;
@@ -60,10 +61,9 @@ app.get("/api/crypto", async (req, res) => {
         "APCA-API-SECRET-KEY": process.env.ALPACA_SECRET_KEY,
       },
     });
-
     const data = await response.json();
-    const simplified = {};
 
+    const simplified = {};
     if (data.snapshots) {
       for (const [symbol, info] of Object.entries(data.snapshots)) {
         simplified[symbol] = {
@@ -71,9 +71,11 @@ app.get("/api/crypto", async (req, res) => {
           high: info.dailyBar?.h ?? null,
           low: info.dailyBar?.l ?? null,
           volume: info.dailyBar?.v ?? null,
-          time: info.latestTrade?.t ?? null
+          time: info.latestTrade?.t ?? null,
         };
       }
+    } else {
+      console.warn("⚠️ No crypto snapshots found:", data);
     }
 
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -84,9 +86,9 @@ app.get("/api/crypto", async (req, res) => {
   }
 });
 
-// =====================
-// METALS (via TwelveData)
-// =====================
+// ===================================================================
+// 🪙 PRECIOUS METALS — via TwelveData
+// ===================================================================
 app.get("/api/metals", async (req, res) => {
   const symbols = req.query.symbols || "XAU/USD,XAG/USD";
   const url = `https://api.twelvedata.com/quote?symbol=${symbols}&apikey=${process.env.TWELVE_API_KEY}`;
@@ -94,18 +96,19 @@ app.get("/api/metals", async (req, res) => {
   try {
     const response = await fetch(url);
     const data = await response.json();
+
     const simplified = {};
 
-    // Handle both single and multi-symbol formats
     if (data.symbol) {
       simplified[data.symbol] = {
         price: parseFloat(data.close),
         high: parseFloat(data.high),
         low: parseFloat(data.low),
         change: parseFloat(data.percent_change),
-        time: data.datetime
+        time: data.datetime,
       };
     } else {
+      // multi-symbol format
       for (const [symbol, info] of Object.entries(data)) {
         if (info && info.close) {
           simplified[symbol] = {
@@ -113,7 +116,7 @@ app.get("/api/metals", async (req, res) => {
             high: parseFloat(info.high),
             low: parseFloat(info.low),
             change: parseFloat(info.percent_change),
-            time: info.datetime
+            time: info.datetime,
           };
         }
       }
@@ -127,5 +130,9 @@ app.get("/api/metals", async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`[express] serving on port ${PORT}`));
+// ===================================================================
+// 🚀 START SERVER
+// ===================================================================
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
