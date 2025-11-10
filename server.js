@@ -126,3 +126,6 @@ app.get("/api/metals", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`[express] serving on port ${PORT}`));
