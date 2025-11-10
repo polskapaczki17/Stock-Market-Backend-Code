@@ -35,6 +35,7 @@ app.get("/api/stocks", async (req, res) => {
         high: info.dailyBar?.h || null,
         low: info.dailyBar?.l || null,
         volume: info.minuteBar?.v || null,
+        time: info.latestTrade?.t || null,
       };
     }
 
