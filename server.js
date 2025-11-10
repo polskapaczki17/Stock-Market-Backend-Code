@@ -8,7 +8,7 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 app.get("/", (req, res) => {
-  res.send("✅ Market Data API is running!");
+  res.send("Market Data API is running!");
 });
 
 // =====================
@@ -50,7 +50,7 @@ app.get("/api/stocks", async (req, res) => {
 // =====================
 app.get("/api/crypto", async (req, res) => {
   const symbols = req.query.symbols || "BTC/USD,ETH/USD";
-  const url = `https://data.alpaca.markets/v1beta3/crypto/us/latest/snapshots?symbols=${symbols}`;
+  const url = `https://data.alpaca.markets/v1beta3/crypto/latest/snapshots?symbols=${symbols}`;
 
   try {
     const response = await fetch(url, {
@@ -59,21 +59,26 @@ app.get("/api/crypto", async (req, res) => {
         "APCA-API-SECRET-KEY": process.env.ALPACA_SECRET_KEY,
       },
     });
-    const data = await response.json();
 
+    const data = await response.json();
     const simplified = {};
-    for (const [symbol, info] of Object.entries(data.snapshots || {})) {
-      simplified[symbol] = {
-        price: info.latestTrade?.p || null,
-        high: info.dailyBar?.h || null,
-        low: info.dailyBar?.l || null,
-        volume: info.dailyBar?.v || null,
-      };
+
+    if (data.snapshots) {
+      for (const [symbol, info] of Object.entries(data.snapshots)) {
+        simplified[symbol] = {
+          price: info.latestTrade?.p ?? null,
+          high: info.dailyBar?.h ?? null,
+          low: info.dailyBar?.l ?? null,
+          volume: info.dailyBar?.v ?? null,
+          time: info.latestTrade?.t ?? null
+        };
+      }
     }
 
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.json(simplified);
   } catch (err) {
+    console.error("Crypto error:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -88,27 +93,35 @@ app.get("/api/metals", async (req, res) => {
   try {
     const response = await fetch(url);
     const data = await response.json();
-
     const simplified = {};
-    for (const [symbol, info] of Object.entries(data)) {
-      if (info.close) {
-        simplified[symbol] = {
-          price: parseFloat(info.close),
-          high: parseFloat(info.high),
-          low: parseFloat(info.low),
-          change: parseFloat(info.percent_change),
-          time: info.datetime,
-        };
+
+    // Handle both single and multi-symbol formats
+    if (data.symbol) {
+      simplified[data.symbol] = {
+        price: parseFloat(data.close),
+        high: parseFloat(data.high),
+        low: parseFloat(data.low),
+        change: parseFloat(data.percent_change),
+        time: data.datetime
+      };
+    } else {
+      for (const [symbol, info] of Object.entries(data)) {
+        if (info && info.close) {
+          simplified[symbol] = {
+            price: parseFloat(info.close),
+            high: parseFloat(info.high),
+            low: parseFloat(info.low),
+            change: parseFloat(info.percent_change),
+            time: info.datetime
+          };
+        }
       }
     }
 
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.json(simplified);
   } catch (err) {
+    console.error("Metals error:", err);
     res.status(500).json({ error: err.message });
   }
-});
-
-app.listen(port, () => {
-  console.log(`🚀 Server running on port ${port}`);
 });
