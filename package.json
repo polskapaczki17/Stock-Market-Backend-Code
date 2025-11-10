@@ -1,14 +1,13 @@
 {
   "name": "market-data-api",
-  "version": "1.0.0",
+  "version": "4.0.0",
   "main": "server.js",
   "type": "module",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.19.2",
-    "node-fetch": "^3.3.2",
-    "dotenv": "^16.4.1"
+    "express": "^4.19.0",
+    "node-fetch": "^3.3.2"
   }
 }
