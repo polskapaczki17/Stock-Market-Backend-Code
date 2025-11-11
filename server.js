@@ -29,13 +29,22 @@ app.get("/api/stocks", async (req, res) => {
 
     const simplified = {};
     for (const [symbol, info] of Object.entries(data)) {
+      const latestPrice = info.latestTrade?.p || info.dailyBar?.c || null;
+      const prevClose = info.prevDailyBar?.c || null;
+      const change = (latestPrice && prevClose)
+        ? (latestPrice - prevClose)
+        : null;
+      const percentChange = (latestPrice && prevClose)
+        ? ((latestPrice - prevClose) / prevClose * 100).toFixed(2)
+        : null;
+      
       simplified[symbol] = {
-        price: info.latestTrade?.p ?? null,
-        high: info.dailyBar?.h ?? null,
-        low: info.dailyBar?.l ?? null,
-        close: info.dailyBar?.c ?? null,
-        volume: info.dailyBar?.v ?? null,
-        time: info.latestTrade?.t ?? null,
+        price: latestPrice,
+        change: change,
+        percentChange: percentChange,
+        high: info.dailyBar?.h || null,
+        low: info.dailyBar?.l || null,
+        volume: info.minuteBar?.v || null,
       };
     }
 
