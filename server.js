@@ -96,50 +96,6 @@ app.get("/api/crypto", async (req, res) => {
 });
 
 // ===================================================================
-// 🪙 PRECIOUS METALS — via TwelveData
-// ===================================================================
-app.get("/api/metals", async (req, res) => {
-  const symbols = req.query.symbols || "XAU/USD,XAG/USD";
-  const url = `https://api.twelvedata.com/quote?symbol=${symbols}&apikey=${process.env.TWELVE_API_KEY}`;
-
-  try {
-    const response = await fetch(url);
-    const data = await response.json();
-
-    const simplified = {};
-
-    if (data.symbol) {
-      simplified[data.symbol] = {
-        price: parseFloat(data.close),
-        high: parseFloat(data.high),
-        low: parseFloat(data.low),
-        change: parseFloat(data.percent_change),
-        time: data.datetime,
-      };
-    } else {
-      // multi-symbol format
-      for (const [symbol, info] of Object.entries(data)) {
-        if (info && info.close) {
-          simplified[symbol] = {
-            price: parseFloat(info.close),
-            high: parseFloat(info.high),
-            low: parseFloat(info.low),
-            change: parseFloat(info.percent_change),
-            time: info.datetime,
-          };
-        }
-      }
-    }
-
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.json(simplified);
-  } catch (err) {
-    console.error("Metals error:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ===================================================================
 // 🚀 START SERVER
 // ===================================================================
 app.listen(PORT, () => {
