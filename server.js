@@ -12,7 +12,7 @@ app.get("/", (req, res) => {
 });
 
 // ===================================================================
-// 📈 STOCKS — via Alpaca Market Data
+// 📈 REAL-TIME STOCKS — via Alpaca Market Data
 // ===================================================================
 app.get("/api/stocks", async (req, res) => {
   const symbols = req.query.symbols || "AAPL,MSFT,TSLA,GOOGL";
@@ -31,20 +31,17 @@ app.get("/api/stocks", async (req, res) => {
     for (const [symbol, info] of Object.entries(data)) {
       const latestPrice = info.latestTrade?.p || info.dailyBar?.c || null;
       const prevClose = info.prevDailyBar?.c || null;
-      const change = (latestPrice && prevClose)
-        ? (latestPrice - prevClose)
-        : null;
-      const percentChange = (latestPrice && prevClose)
-        ? ((latestPrice - prevClose) / prevClose * 100).toFixed(2)
-        : null;
-      
+
       simplified[symbol] = {
         price: latestPrice,
-        change: change,
-        percentChange: percentChange,
+        change: (latestPrice && prevClose) ? (latestPrice - prevClose) : null,
+        percentChange: (latestPrice && prevClose)
+          ? (((latestPrice - prevClose) / prevClose) * 100).toFixed(2)
+          : null,
         high: info.dailyBar?.h || null,
         low: info.dailyBar?.l || null,
         volume: info.minuteBar?.v || null,
+        time: info.latestTrade?.t || null,
       };
     }
 
@@ -57,7 +54,7 @@ app.get("/api/stocks", async (req, res) => {
 });
 
 // ===================================================================
-// 💰 CRYPTO — via Alpaca Crypto Feed (global)
+// 💰 REAL-TIME CRYPTO — via Alpaca Crypto Feed
 // ===================================================================
 app.get("/api/crypto", async (req, res) => {
   const symbols = req.query.symbols || "BTC/USD,ETH/USD";
@@ -70,9 +67,10 @@ app.get("/api/crypto", async (req, res) => {
         "APCA-API-SECRET-KEY": process.env.ALPACA_SECRET_KEY,
       },
     });
-    const data = await response.json();
 
+    const data = await response.json();
     const simplified = {};
+
     if (data.snapshots) {
       for (const [symbol, info] of Object.entries(data.snapshots)) {
         simplified[symbol] = {
@@ -83,14 +81,68 @@ app.get("/api/crypto", async (req, res) => {
           time: info.latestTrade?.t ?? null,
         };
       }
-    } else {
-      console.warn("⚠️ No crypto snapshots found:", data);
     }
 
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.json(simplified);
   } catch (err) {
     console.error("Crypto error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===================================================================
+// 📜 HISTORICAL STOCK DATA — Alpaca v2 Bars
+// ===================================================================
+app.get("/api/history/stocks", async (req, res) => {
+  const symbol = req.query.symbol || "AAPL";
+  const timeframe = req.query.timeframe || "1D"; // 1Min,5Min,15Min,1H,1D
+  const limit = req.query.limit || 30;
+
+  const url =
+    `https://data.alpaca.markets/v2/stocks/${symbol}/bars?timeframe=${timeframe}&limit=${limit}`;
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "APCA-API-KEY-ID": process.env.ALPACA_KEY_ID,
+        "APCA-API-SECRET-KEY": process.env.ALPACA_SECRET_KEY,
+      },
+    });
+
+    const data = await response.json();
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.json(data);
+  } catch (err) {
+    console.error("History stocks error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===================================================================
+// 📜 HISTORICAL CRYPTO DATA — Alpaca Crypto v1 Bars
+// ===================================================================
+app.get("/api/history/crypto", async (req, res) => {
+  const symbol = req.query.symbol || "BTC";
+  const timeframe = req.query.timeframe || "1D"; // 1Min,5Min,15Min,1H,1D
+  const limit = req.query.limit || 30;
+
+  const url =
+    `https://data.alpaca.markets/v1beta3/crypto/us/bars?symbols=${symbol}/USD&timeframe=${timeframe}&limit=${limit}`;
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "APCA-API-KEY-ID": process.env.ALPACA_KEY_ID,
+        "APCA-API-SECRET-KEY": process.env.ALPACA_SECRET_KEY,
+      },
+    });
+
+    const data = await response.json();
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.json(data);
+  } catch (err) {
+    console.error("History crypto error:", err);
     res.status(500).json({ error: err.message });
   }
 });
