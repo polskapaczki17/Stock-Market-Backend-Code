@@ -11,6 +11,72 @@ app.get("/", (req, res) => {
   res.send("Market Data API is running!");
 });
 
+app.get("/api/history", async (req, res) => {
+    const symbol = req.query.symbol;
+    const timeframe = req.query.timeframe || "1Day";
+    const start = req.query.start;
+    const end = req.query.end;
+
+    if (!symbol || !start || !end) {
+        return res.status(400).json({ error: "Missing symbol, start, or end." });
+    }
+
+    const BASE_URL = "https://data.alpaca.markets/v2/stocks/bars";
+
+    let pageToken = null;
+    let allBars = [];
+
+    try {
+        while (true) {
+            const url = new URL(BASE_URL);
+            url.searchParams.append("symbols", symbol);
+            url.searchParams.append("timeframe", timeframe);
+            url.searchParams.append("start", start);
+            url.searchParams.append("end", end);
+            url.searchParams.append("limit", "1000");
+            url.searchParams.append("adjustment", "raw");
+            url.searchParams.append("feed", "sip");
+            url.searchParams.append("sort", "asc");
+
+            if (pageToken) {
+                url.searchParams.append("page_token", pageToken);
+            }
+
+            const response = await fetch(url.toString(), {
+                headers: {
+                    "APCA-API-KEY-ID": process.env.ALPACA_KEY_ID,
+                    "APCA-API-SECRET-KEY": process.env.ALPACA_SECRET_KEY,
+                }
+            });
+
+            const data = await response.json();
+
+            // Extract correct bars key
+            const symbolBars = data.bars?.[symbol];
+
+            if (symbolBars && Array.isArray(symbolBars)) {
+                allBars.push(...symbolBars);
+            }
+
+            // Stop if there is no next page
+            if (!data.next_page_token) break;
+
+            pageToken = data.next_page_token;
+        }
+
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.json({
+            symbol,
+            count: allBars.length,
+            bars: allBars
+        });
+
+    } catch (err) {
+        console.error("History fetch error:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ===================================================================
 // 📈 REAL-TIME STOCKS — via Alpaca Market Data
 // ===================================================================
